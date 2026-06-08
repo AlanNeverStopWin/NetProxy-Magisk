@@ -13,6 +13,7 @@ set -e  # 命令失败立即退出
 readonly MODDIR="${0%/*}"                          # 模块根目录 (脚本所在目录)
 readonly MODULE_CONF="$MODDIR/config/module.conf"  # 模块配置
 readonly LOG_FILE="$MODDIR/logs/service.log"       # 服务日志
+readonly LOG_TAG="boot"                            # 日志组件标签
 
 . "$MODDIR/scripts/utils/common.sh"
 
@@ -76,53 +77,48 @@ check_device_specific() {
 # 返回: 无
 #######################################
 log_env_info() {
-  log "INFO" "========== 环境信息检测 =========="
+  log "DEBUG" "环境信息检测"
 
   # KernelSU 环境
   if [ "$KSU" = "true" ]; then
-    log "INFO" "环境: KernelSU"
-    log "INFO" "KernelSU 版本: ${KSU_VER:-未知}"
-    log "INFO" "KernelSU 版本号: ${KSU_VER_CODE:-未知}"
-    log "INFO" "KernelSU 内核版本号: ${KSU_KERNEL_VER_CODE:-未知}"
+    log "DEBUG" "环境: KernelSU"
+    log "DEBUG" "KernelSU 版本: ${KSU_VER:-未知}"
+    log "DEBUG" "KernelSU 版本号: ${KSU_VER_CODE:-未知}"
+    log "DEBUG" "KernelSU 内核版本号: ${KSU_KERNEL_VER_CODE:-未知}"
   fi
 
   # APatch / KernelPatch 环境
   if [ "$APATCH" = "true" ] || [ "$KERNELPATCH" = "true" ]; then
-    log "INFO" "环境: APatch / KernelPatch"
-    log "INFO" "APatch 版本: ${APATCH_VER:-未知}"
-    log "INFO" "APatch 版本号: ${APATCH_VER_CODE:-未知}"
-    log "INFO" "内核版本: ${KERNEL_VERSION:-未知}"
-    log "INFO" "KernelPatch 版本: ${KERNELPATCH_VERSION:-未知}"
+    log "DEBUG" "环境: APatch / KernelPatch"
+    log "DEBUG" "APatch 版本: ${APATCH_VER:-未知}"
+    log "DEBUG" "APatch 版本号: ${APATCH_VER_CODE:-未知}"
+    log "DEBUG" "内核版本: ${KERNEL_VERSION:-未知}"
+    log "DEBUG" "KernelPatch 版本: ${KERNELPATCH_VERSION:-未知}"
   fi
 
   # Magisk 环境
   if [ -n "$MAGISK_VER" ]; then
-    log "INFO" "环境: Magisk"
-    log "INFO" "Magisk 版本: $MAGISK_VER"
-    log "INFO" "Magisk 版本号: $MAGISK_VER_CODE"
+    log "DEBUG" "环境: Magisk"
+    log "DEBUG" "Magisk 版本: $MAGISK_VER"
+    log "DEBUG" "Magisk 版本号: $MAGISK_VER_CODE"
   fi
 
-  # 模块版本信息 (从 module.prop 提取)
+  # 模块版本信息 (从 module.prop 提取，保留为单行 INFO)
   if [ -f "$MODDIR/module.prop" ]; then
-    local version line
+    local version line versionCode
     line=$(grep "^version=" "$MODDIR/module.prop")
     version="${line#*=}"
     line=$(grep "^versionCode=" "$MODDIR/module.prop")
-    local versionCode="${line#*=}"
-    log "INFO" "模块版本: ${version:-未知}"
-    log "INFO" "模块版本号: ${versionCode:-未知}"
+    versionCode="${line#*=}"
+    log "INFO" "模块版本: ${version:-未知} (${versionCode:-未知})"
   fi
-
-  log "INFO" "=================================="
 }
 
 # 确保日志目录存在 (须在首次写日志前完成)
 mkdir -p "$MODDIR/logs"
 
-log "INFO" "service阶段"
-
 # ========== 主流程 ==========
-log "INFO" "========== NetProxy 服务启动 =========="
+log "INFO" "NetProxy 开机服务启动 (service 阶段)"
 log_env_info
 load_module_config
 
@@ -130,9 +126,7 @@ wait_for_boot
 
 # 按配置决定是否开机自启服务
 if [ "$AUTO_START" = "1" ]; then
-  log "INFO" "开始启动服务..."
   sh "$MODDIR/scripts/core/service.sh" start
-  log "INFO" "服务启动完成"
 else
   log "INFO" "开机自启已禁用，跳过启动"
 fi
@@ -140,4 +134,4 @@ fi
 # 执行设备兼容性修复
 check_device_specific
 
-log "INFO" "========== 服务启动流程结束 =========="
+log "INFO" "开机服务流程结束"

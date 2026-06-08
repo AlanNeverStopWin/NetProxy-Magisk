@@ -118,9 +118,9 @@ api_request() {
     fi
     return 0
   else
-    # 非 GET：仅校验状态码，失败时记录日志
+    # 非 GET：仅校验状态码；失败记 DEBUG (是否严重由调用方判定)
     if [ $status -ne 0 ] || ! printf "%s" "$status_line" | grep -q -E '^HTTP/[0-9.]+ 2[0-9][0-9]'; then
-      log "ERROR" "[控制接口错误] 请求失败: $method $path，状态行: $status_line"
+      log "DEBUG" "[控制接口] 请求失败: $method $path，状态行: $status_line"
       return 1
     fi
     return 0

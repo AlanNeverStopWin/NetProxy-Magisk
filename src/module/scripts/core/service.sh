@@ -23,6 +23,7 @@ readonly RUNTIME_DIR="$SINGBOX_DIR/runtime"           # 运行时生成目录
 readonly SWITCH_SCRIPT="$MODDIR/scripts/core/switch.sh"     # 模式/节点切换脚本
 readonly TPROXY_SCRIPT="$MODDIR/scripts/network/tproxy.sh"  # 透明代理脚本
 readonly KILL_TIMEOUT=5                               # 等待进程退出的秒数上限
+readonly LOG_TAG="service"                            # 日志组件标签
 
 . "$MODDIR/scripts/utils/common.sh"
 . "$MODDIR/scripts/utils/config.sh"
@@ -77,9 +78,9 @@ do_start() {
   local node_path
 
   if [ "$skip_tproxy" = "1" ]; then
-    log "INFO" "========== 开始启动 sing-box 核心服务 (跳过 tproxy) =========="
+    log "DEBUG" "启动 sing-box 核心服务 (跳过 tproxy)"
   else
-    log "INFO" "========== 开始启动 sing-box 服务 =========="
+    log "INFO" "启动 sing-box 服务"
   fi
   verify_environment
 
@@ -98,10 +99,8 @@ do_start() {
 
   [ "$RUNTIME_NODE_COUNT" -gt 0 ] || die "当前节点目录没有可加载的节点配置: $CUR_OUTBOUND_DIR"
 
-  log "INFO" "当前节点目录: $CUR_OUTBOUND_DIR"
-  log "INFO" "路由模式: $CUR_OUTBOUND_MODE"
-  log "INFO" "选择模式: $CUR_SELECTOR_MODE"
-  log "INFO" "已加载节点: $RUNTIME_NODE_COUNT，跳过无效节点: $RUNTIME_SKIPPED_COUNT"
+  # 节点与模式概要 (单行)
+  log "INFO" "节点目录=$CUR_OUTBOUND_DIR 模式=$CUR_OUTBOUND_MODE 选择=$CUR_SELECTOR_MODE 已加载=$RUNTIME_NODE_COUNT 跳过=$RUNTIME_SKIPPED_COUNT"
 
   # 构造启动参数：先基础参数，再逐个追加节点配置，最后追加运行时出站
   set -- run -C "$CONFDIR"
@@ -114,7 +113,7 @@ EOF
   set -- "$@" -c "$runtime_outbounds"
 
   # 以 root:net_admin 身份后台启动进程
-  log "INFO" "正在启动 sing-box 进程..."
+  log "DEBUG" "正在启动 sing-box 进程..."
   cd "$SINGBOX_DIR" || die "无法进入配置目录: $SINGBOX_DIR"
   nohup "$BUSYBOX" setuidgid root:net_admin "$SING_BOX_BIN" "$@" > "$SINGBOX_LOG_FILE" 2>&1 &
 
@@ -128,21 +127,21 @@ EOF
     die "sing-box 启动失败，请检查日志: $SINGBOX_LOG_FILE"
   fi
 
-  # 等待控制接口就绪后同步运行模式
+  # 等待控制接口就绪后同步运行模式 (内部同步步骤静默)
   api_wait_available 60 1 || die "控制接口不可用，启动失败"
-  LOG_STDERR=0 SWITCH_ALLOW_RESTART=0 sh "$SWITCH_SCRIPT" mode "$CUR_OUTBOUND_MODE" || die "运行模式同步失败，启动中止"
+  LOG_STDERR=0 LOG_LEVEL=WARN SWITCH_ALLOW_RESTART=0 sh "$SWITCH_SCRIPT" mode "$CUR_OUTBOUND_MODE" || die "运行模式同步失败，启动中止"
   # 手动选择模式下额外同步当前节点
   if [ "$CUR_SELECTOR_MODE" = "manual" ] || [ "$CUR_SELECTOR_MODE" = "selector" ] || [ "$CUR_SELECTOR_MODE" = "手动选择" ] || [ "$CUR_SELECTOR_MODE" = "手动" ]; then
-    LOG_STDERR=0 SWITCH_ALLOW_RESTART=0 sh "$SWITCH_SCRIPT" config "$CUR_OUTBOUND_CONFIG" || die "节点配置同步失败，启动中止"
+    LOG_STDERR=0 LOG_LEVEL=WARN SWITCH_ALLOW_RESTART=0 sh "$SWITCH_SCRIPT" config "$CUR_OUTBOUND_CONFIG" || die "节点配置同步失败，启动中止"
   fi
 
   # 非跳过模式下加载透明代理规则
   if [ "$skip_tproxy" != "1" ]; then
-    log "INFO" "正在加载透明代理规则..."
+    log "DEBUG" "正在加载透明代理规则..."
     "$TPROXY_SCRIPT" start -d "$TPROXY_CONF_DIR" >> "$LOG_FILE" 2>&1 || die "透明代理规则加载失败"
   fi
 
-  log "INFO" "========== sing-box 服务启动完成 =========="
+  log "INFO" "sing-box 服务启动完成"
 }
 
 #######################################
@@ -156,28 +155,27 @@ do_stop() {
   local pid count
 
   if [ "$skip_tproxy" = "1" ]; then
-    log "INFO" "========== 开始停止 sing-box 核心服务 (跳过 tproxy) =========="
+    log "DEBUG" "停止 sing-box 核心服务 (跳过 tproxy)"
   else
-    log "INFO" "========== 开始停止 sing-box 服务 =========="
+    log "INFO" "停止 sing-box 服务"
   fi
   verify_environment
 
   # 先清理透明代理规则 (非跳过模式)
   if [ "$skip_tproxy" != "1" ]; then
-    log "INFO" "正在清理透明代理规则..."
+    log "DEBUG" "正在清理透明代理规则..."
     "$TPROXY_SCRIPT" stop -d "$TPROXY_CONF_DIR" >> "$LOG_FILE" 2>&1 || true
   fi
 
   # 进程不存在则清理运行时文件后返回，保证幂等
   pid="$(get_pid "$SING_BOX_BIN")"
   if [ -z "$pid" ]; then
-    log "INFO" "未发现运行中的 sing-box 进程"
+    log "DEBUG" "未发现运行中的 sing-box 进程"
     cleanup_runtime_files
-    log "INFO" "========== sing-box 服务停止完成 =========="
     return 0
   fi
 
-  log "INFO" "正在停止 sing-box 进程 (PID: $pid)..."
+  log "DEBUG" "正在停止 sing-box 进程 (PID: $pid)..."
 
   # 先发送 SIGTERM，超时未退出再强制 SIGKILL
   if kill "$pid" 2> /dev/null; then
@@ -198,13 +196,11 @@ do_stop() {
   # 最终确认进程是否已退出，未退出则视为停止失败
   if kill -0 "$pid" 2> /dev/null; then
     log "ERROR" "sing-box 进程仍在运行 (PID: $pid)，停止失败"
-    log "INFO" "========== sing-box 服务停止完成 =========="
     return 1
   fi
 
   cleanup_runtime_files
-  log "INFO" "sing-box 进程已停止"
-  log "INFO" "========== sing-box 服务停止完成 =========="
+  log "INFO" "sing-box 服务已停止"
 }
 
 #######################################
@@ -220,9 +216,9 @@ do_restart() {
   # core 模式仅重启核心进程
   if [ "$target" = "core" ]; then
     skip_tproxy=1
-    log "INFO" "========== 开始重启 sing-box 核心服务 (跳过 tproxy) =========="
+    log "DEBUG" "重启 sing-box 核心服务 (跳过 tproxy)"
   else
-    log "INFO" "========== 开始重启 sing-box 服务 =========="
+    log "INFO" "重启 sing-box 服务"
   fi
 
   do_stop "$skip_tproxy"

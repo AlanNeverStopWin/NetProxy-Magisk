@@ -16,6 +16,7 @@ readonly OUTBOUNDS_DIR="$MODDIR/config/singbox/outbounds"  # 出站节点根目�
 readonly DEFAULT_DIR="$OUTBOUNDS_DIR/default"              # 默认节点目录
 readonly PROXYLINK_BIN="$MODDIR/bin/proxylink"            # proxylink 二进制
 readonly LOG_FILE="$MODDIR/logs/subscription.log"         # 订阅日志文件
+readonly LOG_TAG="sub"                                    # 日志组件标签
 
 . "$MODDIR/scripts/utils/common.sh"
 . "$MODDIR/scripts/utils/nodes.sh"

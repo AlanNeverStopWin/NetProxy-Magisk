@@ -14,6 +14,7 @@ readonly MODDIR="$(cd "$(dirname "$0")/../.." && pwd)"
 readonly LOG_FILE="$MODDIR/logs/service.log"          # 服务日志
 readonly NETFILTER_DIR="/data/adb/netfilter"          # 驱动 .ko 存放目录
 readonly KO_LOADER="$MODDIR/bin/IPSET-LKM/ko-loader"  # 内核模块加载器
+readonly LOG_TAG="ipset"                              # 日志组件标签
 
 . "$MODDIR/scripts/utils/common.sh"
 

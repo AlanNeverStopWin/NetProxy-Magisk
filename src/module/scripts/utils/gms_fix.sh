@@ -12,6 +12,7 @@ set -u  # 引用未定义变量报错
 # 模块根目录与日志文件
 readonly MODDIR="$(cd "$(dirname "$0")/../.." && pwd)"
 readonly LOG_FILE="$MODDIR/logs/service.log"
+readonly LOG_TAG="gms"  # 日志组件标签
 
 . "$MODDIR/scripts/utils/common.sh"
 
@@ -128,9 +129,9 @@ EOF
 main() {
   case "${1:-run}" in
     run)
-      log "INFO" "========== 开始执行设备兼容性修复 =========="
+      log "INFO" "执行设备兼容性修复"
       fix_by_device
-      log "INFO" "========== 设备兼容性修复完成 =========="
+      log "INFO" "设备兼容性修复完成"
       ;;
     -h | --help | help)
       show_usage

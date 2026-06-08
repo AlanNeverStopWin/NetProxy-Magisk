@@ -13,6 +13,22 @@ TAB="$(printf '\t')"  # 制表符
 CR="$(printf '\r')"   # 回车符
 
 #######################################
+# 将日志级别名映射为数字 severity
+# 参数:
+#   $1  级别名 (DEBUG/INFO/WARN/ERROR)
+# 返回: 标准输出打印对应数字 (未知级别按 INFO=20 处理)
+#######################################
+log_level_value() {
+  case "$1" in
+    DEBUG) printf "10" ;;
+    INFO) printf "20" ;;
+    WARN) printf "30" ;;
+    ERROR) printf "40" ;;
+    *) printf "20" ;;
+  esac
+}
+
+#######################################
 # 写入标准日志
 # 参数:
 #   $1        日志级别 (传两个参数时)，或日志内容 (仅一个参数时)
@@ -20,12 +36,14 @@ CR="$(printf '\r')"   # 回车符
 # 全局:
 #   LOG_FILE   日志文件路径 (存在时追加写入)
 #   LOG_STDERR 是否输出到 stderr (0=否，默认输出)
+#   LOG_LEVEL  输出阈值级别 (默认 INFO)，低于该级别的消息被丢弃
+#   LOG_TAG    来源组件标签 (缺省取脚本名)
 # 返回: 无
 #######################################
 log() {
   local level="INFO"
   local message="$1"
-  local timestamp log_content
+  local timestamp tag
 
   # 传入两个参数时，第一个作为日志级别
   if [ $# -ge 2 ]; then
@@ -33,9 +51,13 @@ log() {
     message="$2"
   fi
 
-  # 组装带时间戳的日志行
+  # 低于阈值的消息直接丢弃 (文件与 stderr 均不写)
+  [ "$(log_level_value "$level")" -ge "$(log_level_value "${LOG_LEVEL:-INFO}")" ] || return 0
+
+  # 组装带时间戳与组件标签的日志行
   timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
-  log_content="[$timestamp] [$level] $message"
+  tag="${LOG_TAG:-${0##*/}}"
+  local log_content="[$timestamp] [$level] [$tag] $message"
 
   # 写入日志文件 (若已配置)
   [ -n "${LOG_FILE:-}" ] && printf "%s\n" "$log_content" >> "$LOG_FILE"

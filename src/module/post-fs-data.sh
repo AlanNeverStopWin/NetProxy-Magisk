@@ -12,10 +12,11 @@ set -e  # 命令失败立即退出
 readonly MODDIR="${0%/*}"                          # 模块根目录 (脚本所在目录)
 readonly MODULE_CONF="$MODDIR/config/module.conf"  # 模块配置
 readonly LOG_FILE="$MODDIR/logs/service.log"       # 服务日志
+readonly LOG_TAG="post-fs"                         # 日志组件标签
 
 . "$MODDIR/scripts/utils/common.sh"
 
-log "INFO" "post-fs-data阶段"
+log "INFO" "post-fs-data 阶段"
 
 # 加载集成的 IPSET 内核驱动
 sh "$MODDIR/scripts/utils/ipset.sh" load
