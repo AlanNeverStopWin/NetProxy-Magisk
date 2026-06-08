@@ -378,7 +378,7 @@ update_all_subscriptions() {
     name="$(read_subscription_meta_value "$meta_file" "name" || true)"
     url="$(read_subscription_meta_value "$meta_file" "url" || true)"
     [ -n "$url" ] || continue
-    [ -n "$name" ] || name="$(basename "$sub_dir")"
+    [ -n "$name" ] || name="${sub_dir##*/}"
 
     # 命令行参数优先，否则使用各订阅各自的持久化值
     saved_ua="$(read_subscription_meta_value "$meta_file" "ua" || true)"
@@ -430,7 +430,7 @@ list_subscriptions() {
 
     name="$(read_subscription_meta_value "$meta_file" "name" || true)"
     updated="$(read_subscription_meta_value "$meta_file" "updated" || true)"
-    [ -n "$name" ] || name="$(basename "$sub_dir")"
+    [ -n "$name" ] || name="${sub_dir##*/}"
 
     # 统计该订阅下的有效节点数
     node_count=0

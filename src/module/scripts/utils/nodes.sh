@@ -8,8 +8,6 @@
 #######################################
 
 readonly NODE_RECORD_DELIM="$(printf '\t')"  # 扫描记录的字段分隔符 (制表符)
-NODE_SCAN_VALID_COUNT=0                       # 最近一次扫描的有效节点数
-NODE_SCAN_SKIPPED_COUNT=0                     # 最近一次扫描跳过的文件数
 
 #######################################
 # 判断文件是否为节点配置文件
@@ -147,49 +145,22 @@ subscription_display_name() {
   if [ -n "$name" ]; then
     printf "%s\n" "$name"
   else
-    printf "%s\n" "$(basename "$sub_dir")"
+    # 回退为目录名 (参数展开取末段，等价 basename)
+    printf "%s\n" "${sub_dir##*/}"
   fi
 }
 
 #######################################
-# 重置节点扫描计数器
-# 参数: 无
-# 返回: 无
-#######################################
-reset_node_scan_counters() {
-  NODE_SCAN_VALID_COUNT=0
-  NODE_SCAN_SKIPPED_COUNT=0
-}
-
-#######################################
-# 向扫描结果文件追加一条节点记录
-# 参数:
-#   $1  输出文件
-#   $2  节点文件路径
-#   $3  出站标签
-#   $4  来源 (默认节点 / 订阅名)
-#   $5  是否当前节点 (1=是)
-# 返回: 无 (追加一行 制表符分隔 记录)
-#######################################
-append_node_record() {
-  local output_file="$1"
-  local file="$2"
-  local tag="$3"
-  local source="$4"
-  local is_current="$5"
-
-  printf "%s\t%s\t%s\t%s\t%s\n" "$file" "$(basename "$file")" "$tag" "$source" "$is_current" >> "$output_file"
-}
-
-#######################################
 # 扫描单个目录中的节点并写入结果文件
+# 单次 awk 遍历目录内全部节点文件，逐行输出
+# "路径 文件名 标签 来源 是否当前" (制表符分隔)。
 # 参数:
 #   $1  节点目录
 #   $2  当前节点路径 (用于标记)
 #   $3  来源标识
 #   $4  输出文件
 #   $5  追加模式 (1=追加，否则覆盖，默认覆盖)
-# 返回: 无 (更新 NODE_SCAN_* 计数器)
+# 返回: 无
 #######################################
 scan_nodes_in_dir() {
   local dir="$1"
@@ -197,31 +168,31 @@ scan_nodes_in_dir() {
   local source="$3"
   local output_file="$4"
   local append_mode="${5:-0}"
-  local file tag is_current
 
-  # 非追加模式则清空输出文件并重置计数
-  if [ "$append_mode" != "1" ]; then
-    : > "$output_file"
-    reset_node_scan_counters
-  fi
+  # 非追加模式先清空输出文件
+  [ "$append_mode" = "1" ] || : > "$output_file"
 
-  # 遍历目录下所有 json 节点文件
-  for file in "$dir"/*.json; do
-    is_node_config_file "$file" || continue
-    tag="$(detect_outbound_tag "$file" || true)"
+  # 单次 awk 提取各文件首个 tag 并组装记录；无 tag 文件与 _meta.json 自动跳过
+  awk -v src="$source" -v cur="$current_config" '
+    # 进入新文件时重置标志并取出文件名 (basename)
+    FNR == 1 { found = 0; fn = FILENAME; base = fn; sub(/.*\//, "", base) }
 
-    # 无法解析标签的文件计入跳过
-    if [ -z "$tag" ]; then
-      NODE_SCAN_SKIPPED_COUNT=$((NODE_SCAN_SKIPPED_COUNT + 1))
-      continue
-    fi
+    # 跳过订阅元数据文件
+    base == "_meta.json" { nextfile }
 
-    # 标记是否为当前使用的节点
-    is_current=0
-    [ "$file" = "$current_config" ] && is_current=1
-    append_node_record "$output_file" "$file" "$tag" "$source" "$is_current"
-    NODE_SCAN_VALID_COUNT=$((NODE_SCAN_VALID_COUNT + 1))
-  done
+    # 匹配到首个 "tag": "..." 即提取并输出
+    !found {
+      if (match($0, /"tag"[ \t]*:[ \t]*"/)) {
+        rest = substr($0, RSTART + RLENGTH)
+        q = index(rest, "\"")                       # 取到下一个引号为止
+        tag = (q > 0) ? substr(rest, 1, q - 1) : rest
+        is_current = (fn == cur) ? 1 : 0
+        printf "%s\t%s\t%s\t%s\t%s\n", fn, base, tag, src, is_current
+        found = 1
+        nextfile
+      }
+    }
+  ' "$dir"/*.json 2> /dev/null >> "$output_file"
 }
 
 #######################################
@@ -238,9 +209,8 @@ scan_all_nodes() {
   local output_file="$3"
   local sub_dir source
 
-  # 清空输出文件并重置计数
+  # 清空输出文件
   : > "$output_file"
-  reset_node_scan_counters
 
   # 先扫描默认节点目录
   scan_nodes_in_dir "$outbounds_dir/default" "$current_config" "默认节点" "$output_file" 1

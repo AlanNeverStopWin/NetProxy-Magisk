@@ -262,7 +262,7 @@ cmd_service_status() {
   udp_port="$(read_conf "$TPROXY_CONF" "PROXY_UDP_PORT" "-")"
   dns_port="$(read_conf "$TPROXY_CONF" "DNS_PORT" "-")"
 
-  [ -n "$current" ] && printf "当前节点: %s\n" "$(basename "$current")"
+  [ -n "$current" ] && printf "当前节点: %s\n" "${current##*/}"
   printf "出站模式: %s\n" "$mode"
   printf "透明代理端口: TCP=%s UDP=%s DNS=%s\n" "$tcp_port" "$udp_port" "$dns_port"
 
@@ -375,7 +375,7 @@ cmd_node_current() {
   tag="$(detect_outbound_tag "$current" || true)"
 
   section "当前节点"
-  printf "文件名: %s\n" "$(basename "$current")"
+  printf "文件名: %s\n" "${current##*/}"
   [ -n "$tag" ] && printf "标签: %s\n" "$tag"
   printf "路径: %s\n" "$current"
 }
@@ -388,7 +388,7 @@ cmd_node_use() {
   [ -n "$query" ] || die_cli "用法: cli node use <名称|标签|路径>"
   prepare_node_scan
   node="$(resolve_node_from_scan "$CLI_NODE_SCAN_FILE" "$query")"
-  info "正在切换节点: $(basename "$node")"
+  info "正在切换节点: ${node##*/}"
   sh "$SWITCH_SCRIPT" config "$node"
 }
 
@@ -455,7 +455,7 @@ cmd_node_remove() {
   # 禁止删除正在使用的节点
   [ "$node" != "$current" ] || die_cli "不能删除当前正在使用的节点"
   rm -f "$node"
-  info "已删除节点: $(basename "$node")"
+  info "已删除节点: ${node##*/}"
 }
 
 #######################################
