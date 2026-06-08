@@ -190,7 +190,16 @@ do_stop() {
     if kill -0 "$pid" 2> /dev/null; then
       log "WARN" "进程未响应 SIGTERM，改用 SIGKILL"
       kill -9 "$pid" 2> /dev/null || true
+      # 给 SIGKILL 留出回收时间
+      sleep 1
     fi
+  fi
+
+  # 最终确认进程是否已退出，未退出则视为停止失败
+  if kill -0 "$pid" 2> /dev/null; then
+    log "ERROR" "sing-box 进程仍在运行 (PID: $pid)，停止失败"
+    log "INFO" "========== sing-box 服务停止完成 =========="
+    return 1
   fi
 
   cleanup_runtime_files
