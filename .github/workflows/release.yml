@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   release:
@@ -72,6 +73,14 @@ jobs:
             [完整包](${{ github.server_url }}/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ steps.pack.outputs.full_name }})
             [精简包](${{ github.server_url }}/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ steps.pack.outputs.lite_name }})
             [纯脚本包](${{ github.server_url }}/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ steps.pack.outputs.mini_name }})
+
+      - name: 触发同步到 KernelSU 仓库
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # release:published 由 GITHUB_TOKEN 创建，受防递归限制不会自动触发 sync 工作流；
+        # 故在此显式 dispatch（workflow_dispatch 是该限制的官方例外，GITHUB_TOKEN 可触发）。
+        run: gh workflow run sync-kernelsu.yml
 
       - name: 失败通知
         if: failure()
