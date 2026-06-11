@@ -43,6 +43,7 @@ readonly EXECUTABLE_FILES="
     scripts/core/service.sh
     scripts/core/switch.sh
     scripts/network/tproxy.sh
+    scripts/network/netmon.sh
     scripts/core/subscription.sh
     scripts/utils/ipset.sh
     scripts/utils/gms_fix.sh
