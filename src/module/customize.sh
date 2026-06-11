@@ -45,6 +45,7 @@ readonly EXECUTABLE_FILES="
     scripts/network/tproxy.sh
     scripts/network/netmon.sh
     scripts/core/subscription.sh
+    scripts/core/subsched.sh
     scripts/utils/ipset.sh
     scripts/utils/gms_fix.sh
 "
