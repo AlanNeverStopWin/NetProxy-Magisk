@@ -977,6 +977,12 @@ setup_proxy_chain() {
         safe_chain_create "$family" "$table" "$c"
     done
 
+    # 针对特定接口（如 USB 网络共享和热点）绕过代理的初始规则
+    [ "$PROXY_USB" -eq 0 ] && $cmd -t "$table" -A "PROXY_PREROUTING$suffix" -i "$USB_INTERFACE" -j ACCEPT
+    [ "$PROXY_USB" -eq 0 ] && $cmd -t "$table" -A "PROXY_PREROUTING$suffix" -i "usb+" -j ACCEPT
+    [ "$PROXY_HOTSPOT" -eq 0 ] && $cmd -t "$table" -A "PROXY_PREROUTING$suffix" -i "$HOTSPOT_INTERFACE" -j ACCEPT
+    [ "$PROXY_HOTSPOT" -eq 0 ] && $cmd -t "$table" -A "PROXY_PREROUTING$suffix" -i "ap+" -j ACCEPT
+
     # 1. 优先建立连接追踪放行，如果是 WAN 回包，直接在这里 ACCEPT 出去，保留 Android netd 原有标记，通过 wlan0 的 Strict RPF 校验
     if [ "$HAS_CONNTRACK" -eq 1 ]; then
         $cmd -t "$table" -A "PROXY_PREROUTING$suffix" -m conntrack --ctdir REPLY -j ACCEPT
